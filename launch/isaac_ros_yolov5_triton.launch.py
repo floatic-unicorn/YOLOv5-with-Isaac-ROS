@@ -25,17 +25,18 @@ from ament_index_python.packages import get_package_share_directory
 def generate_launch_description():
     """Launch the DNN Image encoder, Triton node and Yolov5 decoder node."""
     launch_dir_path = os.path.dirname(os.path.realpath(__file__))
-    config = launch_dir_path + '/../config/params.yaml'
-    model_dir_path = '/workspaces/isaac_ros-dev/src/yolov5_isaac_ros'
+    spececific_model = "v8n"
+    config = launch_dir_path + '/../config/params_' + spececific_model +'.yaml'
+    model_dir_path = '/workspaces/isaac_ros-dev/src/YOLOv5-with-Isaac-ROS'
 
     launch_args = [
         DeclareLaunchArgument(
             'network_image_width',
-            default_value='960',
+            default_value='640',
             description='The input image width that the network expects'),
         DeclareLaunchArgument(
             'network_image_height',
-            default_value='544',
+            default_value='640',
             description='The input image height that the network expects'),
         DeclareLaunchArgument(
             'encoder_image_mean',
@@ -53,7 +54,7 @@ def generate_launch_description():
     encoder_image_mean = LaunchConfiguration('encoder_image_mean')
     encoder_image_stddev = LaunchConfiguration('encoder_image_stddev')
 
-    
+
     encoder_node = ComposableNode(
         name='dnn_image_encoder',
         package='isaac_ros_dnn_encoders',
@@ -64,7 +65,7 @@ def generate_launch_description():
             'image_mean': encoder_image_mean,
             'image_stddev': encoder_image_stddev,
         }],
-        remappings=[('encoded_tensor', 'tensor_pub'), ('image', '/camera/color/image_raw')]
+        remappings=[('encoded_tensor', 'tensor_pub'), ('image', '/resize/image')]
     )
 
     triton_node = ComposableNode(
@@ -72,7 +73,8 @@ def generate_launch_description():
         package='isaac_ros_triton',
         plugin='nvidia::isaac_ros::dnn_inference::TritonNode',
         parameters=[{
-            'model_name': 'yolov5',
+            # 'model_name': 'yolov5',
+            'model_name': 'yolo' + spececific_model,
             'model_repository_paths': [model_dir_path],
             'input_tensor_names': ['input_tensor'],
             'input_binding_names': ['images'],
@@ -82,21 +84,8 @@ def generate_launch_description():
             'output_tensor_formats': ['nitros_tensor_list_nhwc_rgb_f32'],
             'log_level': 0
         }])
-     
 
 
-    resize_node = ComposableNode(
-        name='isaac_ros_resize',
-        package='isaac_ros_image_proc',
-        plugin='isaac_ros::image_proc::ResizeNode',
-        parameters=[{
-            'use_relative_scale': False,
-            'height': 640,
-            'width': 640,
-        }]
-    )
-
-    
     rclcpp_container = ComposableNodeContainer(
         name='yolov5_container',
         namespace='',
@@ -105,6 +94,22 @@ def generate_launch_description():
         composable_node_descriptions=[
             encoder_node, triton_node],
         output='screen',
+    )
+
+    resize_img_node = Node(
+        package="resizing_tools",
+        name="image_resizer",
+        executable="image_resizer",
+        output="screen",
+        parameters=[{'width':network_image_width}, {'height':network_image_height}]
+    )
+
+    resize_bbox_node = Node(
+        package="resizing_tools",
+        name="bbox_resizer",
+        executable="bbox_resizer",
+        output="screen",
+        parameters=[{'width':network_image_width}, {'height':network_image_height}]
     )
 
 
@@ -122,7 +127,7 @@ def generate_launch_description():
             executable='isaac_ros_yolov5_visualizer',
             output='screen',
     )
-    
+
     rqt_node = Node(
             name='image_view',
             package='rqt_image_view',
@@ -131,6 +136,7 @@ def generate_launch_description():
     )
 
 
-    final_launch_description = launch_args + [rclcpp_container] + [yolov5_decoder_node] + [yolov5_visualizer_node] + [rqt_node]
-    return launch.LaunchDescription(final_launch_description)
+    final_launch_description = launch_args + [rclcpp_container] + [resize_img_node] + [resize_bbox_node] + [yolov5_decoder_node] + [yolov5_visualizer_node] + [rqt_node]
+    # final_launch_description = launch_args + [rclcpp_container] + [resize_img_node] + [resize_bbox_node] + [yolov5_decoder_node] + [yolov5_visualizer_node]
 
+    return launch.LaunchDescription(final_launch_description)

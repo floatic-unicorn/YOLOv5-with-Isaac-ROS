@@ -34,18 +34,17 @@ names = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5:
 class Yolov5Visualizer(Node):
     QUEUE_SIZE = 100
     color = (0, 255, 0)
-    bbox_thickness = 3
+    bbox_thickness = 2
 
     def __init__(self):
         super().__init__('yolov5_visualizer')
         self._bridge = cv_bridge.CvBridge()
         self._processed_image_pub = self.create_publisher(
             Image, 'yolov5_processed_image',  self.QUEUE_SIZE)
-
         self._detections_subscription = message_filters.Subscriber(
             self,
             Detection2DArray,
-            'object_detections')
+            '/resize/bbox')
         self._image_subscription = message_filters.Subscriber(
             self,
             Image,
@@ -58,6 +57,7 @@ class Yolov5Visualizer(Node):
         self.time_synchronizer.registerCallback(self.detections_callback)
 
     def detections_callback(self, detections_msg, img_msg):
+
         txt_color=(255, 0, 255)
         cv2_img = self._bridge.imgmsg_to_cv2(img_msg)
         for detection in detections_msg.detections:
@@ -65,8 +65,8 @@ class Yolov5Visualizer(Node):
             center_y = detection.bbox.center.position.y
             width = detection.bbox.size_x
             height = detection.bbox.size_y
-            
-            label = names[int(detection.results[0].hypothesis.class_id)] 
+
+            label = names[int(detection.results[0].hypothesis.class_id)]
             conf_score = detection.results[0].hypothesis.score
             label = f'{label} {conf_score:.2f}'
 
@@ -87,6 +87,7 @@ class Yolov5Visualizer(Node):
 
         processed_img = self._bridge.cv2_to_imgmsg(
             cv2_img, encoding=img_msg.encoding)
+        # self.get_logger().info("asdasdas")
         self._processed_image_pub.publish(processed_img)
 
 

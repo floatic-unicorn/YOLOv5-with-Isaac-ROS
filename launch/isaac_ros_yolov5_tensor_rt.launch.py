@@ -61,7 +61,7 @@ def generate_launch_description():
             description='A list of tensor names to bound to the specified input binding names'),
         DeclareLaunchArgument(
             'input_binding_names',
-            default_value='["input_1"]',
+            default_value='["images"]',
             description='A list of input tensor binding names (specified by model)'),
         DeclareLaunchArgument(
             'input_tensor_formats',
@@ -73,7 +73,7 @@ def generate_launch_description():
             description='A list of tensor names to bound to the specified output binding names'),
         DeclareLaunchArgument(
             'output_binding_names',
-            default_value='["softmax_1"]',
+            default_value='["output0"]',
             description='A  list of output tensor binding names (specified by model)'),
         DeclareLaunchArgument(
             'output_tensor_formats',
@@ -118,7 +118,8 @@ def generate_launch_description():
             'image_mean': encoder_image_mean,
             'image_stddev': encoder_image_stddev,
         }],
-        remappings=[('encoded_tensor', 'tensor_pub'), ('image', '/camera/color/image_raw')]
+        remappings=[('encoded_tensor', 'tensor_pub'), ('image', '/resize/image')]
+        # remappings=[('encoded_tensor', 'tensor_pub'), ('image', '/camera/color/image_raw')]
     )
 
     tensorrt_node = ComposableNode(
@@ -136,21 +137,23 @@ def generate_launch_description():
             'output_tensor_formats': output_tensor_formats,
             'verbose': tensorrt_verbose,
             'force_engine_update': force_engine_update
-        }])      
+        }])
 
 
-    resize_node = ComposableNode(
-        name='isaac_ros_resize',
-        package='isaac_ros_image_proc',
-        plugin='isaac_ros::image_proc::ResizeNode',
-        parameters=[{
-            'use_relative_scale': False,
-            'height': 640,
-            'width': 640,
-        }]
-    )
+    # resize_node = ComposableNode(
+    #     name='isaac_ros_resize',
+    #     package='isaac_ros_image_proc',
+    #     plugin='nvidia::isaac_ros::image_proc::ResizeNode',
+    #     parameters=[{
+    #         'use_relative_scale': False,
+    #         'height': 640,
+    #         'width': 640,
+    #     }],
+    #     remappings=[('image', '/camera/color/image_raw')]
+    # )
 
-    
+
+
     rclcpp_container = ComposableNodeContainer(
         name='yolov5_container',
         namespace='',
@@ -161,6 +164,21 @@ def generate_launch_description():
         output='screen',
     )
 
+    resize_img_node = Node(
+        package="resizing_tools",
+        name="image_resizer",
+        executable="image_resizer",
+        output="screen",
+        parameters=[{'width':network_image_width}, {'height':network_image_height}]
+    )
+
+    resize_bbox_node = Node(
+        package="resizing_tools",
+        name="bbox_resizer",
+        executable="bbox_resizer",
+        output="screen",
+        parameters=[{'width':network_image_width}, {'height':network_image_height}]
+    )
 
     yolov5_decoder_node = Node(
         name='yolov5_decoder_node',
@@ -177,7 +195,7 @@ def generate_launch_description():
             executable='isaac_ros_yolov5_visualizer',
             output='screen',
     )
-    
+
     rqt_node = Node(
             name='image_view',
             package='rqt_image_view',
@@ -185,7 +203,7 @@ def generate_launch_description():
             arguments=['/yolov5_processed_image']
     )
 
-
-
-    final_launch_description = launch_args + [rclcpp_container] + [yolov5_decoder_node] + [yolov5_visualizer_node] + [rqt_node]
+    # final_launch_description = launch_args + [resize_img_node] + [rclcpp_container] + [yolov5_decoder_node] + [resize_bbox_node]
+    final_launch_description = launch_args + [resize_img_node] + [resize_bbox_node] + [rclcpp_container] + [yolov5_decoder_node] + [yolov5_visualizer_node] + [rqt_node]
+    # final_launch_description = launch_args + [resize_node] + [rclcpp_container] + [yolov5_decoder_node]
     return launch.LaunchDescription(final_launch_description)
