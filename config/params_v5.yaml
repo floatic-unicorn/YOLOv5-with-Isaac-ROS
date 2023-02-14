@@ -15,8 +15,7 @@
 # limitations under the License.
 ---
 model_repository_paths:
-  - '/workspaces/isaac_ros-dev/src/yolov5_isaac_ros'
-model_name: 'yolov5'
-
+  - "/workspaces/isaac_ros-dev/src/YOLOv5-with-Isaac-ROS"
+model_name: "yolov5"
 # post filtering parameters
 
