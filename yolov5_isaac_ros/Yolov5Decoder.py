@@ -35,7 +35,7 @@ from pathlib import Path
 def decode(pred, params_config):
     # Convert Isaac ROS tensors to torch arrays
     pred = tensor_to_torch_array(pred)
-
+    # pred = pred.permute(0,2,1)
     # Decode tensors into a set of detections
     conf_thres = params_config['conf_thres']
     iou_thres = params_config['iou_thres']
@@ -43,12 +43,12 @@ def decode(pred, params_config):
     classes = None
     agnostic_nms = False
     device = ''
-    
+
     device = select_device(device)
 
     pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
     # pred = [cx, cy, w, h, conf, pred_cls(80)]
-    
+
     detections_arr = Detection2DArray()
 
 
@@ -57,12 +57,12 @@ def decode(pred, params_config):
             #(640, 640) is input dimensions expected by YOLOv5s network
             shape = torch.Size([640, 640])
             #(1280, 720) is image size from RealSense camera
-            det[:, :4] = scale_boxes(shape, det[:, :4], (720, 1280, 3))
+            # det[:, :4] = scale_boxes(shape, det[:, :4], (720, 1280, 3))
+            # det[:, :4] = scale_boxes(shape, det[:, :4], (640, 640, 3))
 
-            
             for *xyxy, conf, cls in det:
                 xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1)
-    
+
                 obj = Detection2D()
                 obj.bbox.size_x = float(xywh[2])
                 obj.bbox.size_y = float(xywh[3])
@@ -89,8 +89,8 @@ class IsaacROSYolov5DecoderNode(Node):
                 ('iou_thres', rclpy.Parameter.Type.DOUBLE),
                 ('max_det', rclpy.Parameter.Type.INTEGER)
             ])
-    
-        
+
+
         # Sanity check parameters
         self.params_config = {}
         param_names = ['conf_thres', 'iou_thres', 'max_det']
@@ -126,11 +126,12 @@ class IsaacROSYolov5DecoderNode(Node):
         # to topic object_detections. The queue size is 10 messages.
         self.publisher_ = self.create_publisher(
             Detection2DArray, 'object_detections', 10)
-        
+
 
     def listener_callback(self, msg):
         tensors = msg.tensors
-    
+        # self.get_logger().info(str(tensors[0].shape))
+
         detections = decode(tensors[0], self.params_config)
 
         if detections is None:
@@ -141,7 +142,7 @@ class IsaacROSYolov5DecoderNode(Node):
 
         for det in detections.detections:
             det.header = msg.header
-            
+
 
         # Publish the message to the topic
         self.publisher_.publish(detections)
