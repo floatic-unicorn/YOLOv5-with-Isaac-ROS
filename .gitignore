@@ -1,0 +1,6 @@
+.vscode
+yolov5n
+yolov5s
+yolov8n
+yolov8s
+*.pyc
